@@ -1,0 +1,103 @@
+import kagglehub
+import pandas as pd
+import os
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import confusion_matrix, accuracy_score
+import matplotlib.pyplot as plt
+import numpy as np
+
+# 󰍹 DATA COLLECTION
+
+path = kagglehub.dataset_download("nitishabharathi/email-spam-dataset")
+print("Dataset Path:", path)
+print("Files:", os.listdir(path))
+# Fix: Change 'emails.csv' to 'completeSpamAssassin.csv'
+df = pd.read_csv(f"{path}/completeSpamAssassin.csv")
+
+#󰍽 Data Head
+
+print("\nDataset Preview:\n")
+print(df.head())
+print("\nDataset Info:\n")
+print(df.info())
+print("\nColumns:", df.columns)
+df.head(3)
+
+
+#󰍼 Auto Column Detection
+
+text_col = None
+label_col = None
+for col in df.columns:
+    if 'text' in col.lower() or 'email' in col.lower():
+        text_col = col
+    if 'spam' in col.lower() or 'label' in col.lower():
+        label_col = col
+# Fix: Explicitly set text_col to 'Body' as auto-detection failed
+if text_col is None:
+    if 'Body' in df.columns:
+        text_col = 'Body'
+print("\nDetected Text Column:", text_col)
+print("Detected Label Column:", label_col)
+
+#󰍶 Missing Values Check
+
+print("\nMissing Values Per Column:\n")
+print(df.isnull().sum())
+print("\nTotal Missing Values:", df.isnull().sum().sum())
+
+#󰍵 Preprocessing
+
+# Handle missing values safely
+
+df[text_col] = df[text_col].fillna("")
+df = df.dropna(subset=[label_col])
+X = df[text_col]
+y = df[label_col]
+
+# Convert labels if needed
+if y.dtype == object:
+    y = y.map({'ham': 0, 'spam': 1})
+
+ #󰍻 Train / Test Split
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# 󰍺 Feature Extraction
+
+vectorizer = TfidfVectorizer(stop_words='english')
+X_train_vec = vectorizer.fit_transform(X_train)
+X_test_vec = vectorizer.transform(X_test)
+
+# 󰍴 Model Training
+
+model = LogisticRegression()
+model.fit(X_train_vec, y_train)
+
+
+#󰍷 Testing / Predictions
+
+y_pred = model.predict(X_test_vec)
+
+#🔟 Confusion Matrix
+
+cm = confusion_matrix(y_test, y_pred)
+print("\nConfusion Matrix:\n", cm)
+plt.figure()
+plt.imshow(cm)
+plt.title("Confusion Matrix")
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+for i in range(len(cm)):
+    for j in range(len(cm[0])):
+        plt.text(j, i, cm[i, j], ha='center', va='center')
+plt.show()
+
+#󰍹󰍹 Accuracy
+
+accuracy = accuracy_score(y_test, y_pred)
+print("\nAccuracy Rate:", accuracy)
